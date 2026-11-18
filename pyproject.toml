@@ -1,0 +1,90 @@
+[project]
+name = "kb-mesh"
+version = "0.1.0"
+description = "Multi-tenant knowledge-base platform: dual-store fusion retrieval (Milvus + Neo4j), LangGraph orchestration, evaluation loop"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "pydantic>=2.7",
+    "pydantic-settings>=2.3",
+    "structlog>=24.1",
+    "httpx>=0.27",
+    "tenacity>=8.3",
+    # --- orchestration: interrupt()/resume + PG checkpoints are hard requirements ---
+    "langgraph==1.2.19",
+    "langgraph-checkpoint==4.3.1",
+    "langgraph-checkpoint-postgres==3.2.0",
+    "psycopg[binary,pool]>=3.1.16,<4",
+    # --- data layer ---
+    "sqlalchemy[asyncio]>=2.0,<2.1",
+    "asyncpg>=0.29,<0.31",
+    "alembic>=1.13,<2.0",
+    "pgvector>=0.2.5,<0.4",
+    # --- retrieval engines ---
+    "pymilvus>=2.5.10,<2.6",
+    "neo4j>=5.26,<6",
+    # --- async indexing ---
+    "celery>=5.4,<6",
+    "redis>=5.0",
+    # --- models: chat / embedding / rerank via DashScope-compatible API ---
+    "openai>=1.40",
+    # --- documents ---
+    "pypdf>=4.2",
+    "pdfplumber>=0.11",
+    # 整页转图直接用 pdfium:pdfplumber 的 to_image() 只给 PIL/jpg 路径,管道要确定的 PNG 字节
+    "pypdfium2>=4.30",
+    "python-docx>=1.1",
+    "openpyxl>=3.1",
+    "pillow>=12.3",
+    # --- auth / api ---
+    "pyjwt>=2.8",
+    "bcrypt>=4.0",
+    "sse-starlette>=2.1",
+    "python-multipart>=0.0.9",
+    # --- object storage: path-style addressing, see storage/s3.py ---
+    "boto3>=1.34",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8",
+    "pytest-asyncio>=0.23",
+    "ruff>=0.5",
+    "ipython>=8",
+    # 只用于测试里生成 PDF fixture(FR-104 嵌入图 vs FR-105 扫描页):运行时无需
+    "reportlab>=4",
+    # 幂等锁的 Lua 只能在真 Redis 语义下验,`[lua]` 装 lupa,否则 fakeredis 直接拒收 eval
+    "fakeredis[lua]>=2.24",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[[tool.uv.index]]
+url = "https://pypi.tuna.tsinghua.edu.cn/simple"
+default = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+# 单条事件循环贯穿整轮:数据层测试要跑真 PG,session 级 engine 的连接若挂在另一条 loop 上,
+# asyncpg 会在第二个测试报 "Exception cannot be forwarded to a different loop"。
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 110
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+ignore = ["B008"]
+
+[tool.ruff.lint.per-file-ignores]
+# autogenerate 出来的建索引语句一行一个,手工折行只会在下次 autogenerate 时被抹平
+"src/kbmesh/db/migrations/versions/*" = ["E501"]

@@ -1,0 +1,102 @@
+name: kbmesh-dev
+
+# 本地开发中间件:Milvus 2.5.10 + etcd + MinIO(Milvus 专用后端) + Neo4j 5.26
+# 约定:
+#   - 端口只绑 127.0.0.1,不对公网/局域网暴露
+#   - PG16+pgvector / Redis / 业务 MinIO 由部署环境提供,不在这里重复起
+#   - 下面的 milvus-storage 是 Milvus 自己的内部对象后端,仅容器网络内可达,不承载业务文件
+#   - 数据用命名卷,避免 bind mount 的 uid 权限坑
+#   - 容器名统一以 kbmesh- 开头,不影响本机其它容器
+
+services:
+  etcd:
+    image: bitnamilegacy/etcd:3.5
+    container_name: kbmesh-etcd
+    restart: unless-stopped
+    mem_limit: 256m
+    environment:
+      ALLOW_NONE_AUTHENTICATION: "yes"
+      ETCD_ADVERTISE_CLIENT_URLS: http://kbmesh-etcd:2379
+      ETCD_LISTEN_CLIENT_URLS: http://0.0.0.0:2379
+      ETCD_DATA_DIR: /bitnami/etcd/data
+    volumes:
+      - etcd-data:/bitnami/etcd/data
+    networks: [kbmesh]
+
+  milvus-storage:
+    image: bitnamilegacy/minio:2025.7.23-debian-12-r1
+    container_name: kbmesh-milvus-storage
+    restart: unless-stopped
+    mem_limit: 512m
+    environment:
+      MINIO_ROOT_USER: ${MILVUS_MINIO_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MILVUS_MINIO_PASSWORD:?set in deploy/.env}
+      MINIO_DEFAULT_BUCKETS: ${MILVUS_MINIO_BUCKET:-milvus-bucket}
+    volumes:
+      - minio-data:/bitnami/minio/data
+    networks: [kbmesh]
+
+  milvus:
+    image: milvusdb/milvus:v2.5.10
+    container_name: kbmesh-milvus
+    restart: unless-stopped
+    mem_limit: 3g
+    command: ["milvus", "run", "standalone"]
+    environment:
+      ETCD_ENDPOINTS: kbmesh-etcd:2379
+      MINIO_ADDRESS: kbmesh-milvus-storage:9000
+      MINIO_ACCESSKEYID: ${MILVUS_MINIO_USER:-minioadmin}
+      MINIOSECRETKEY: ${MILVUS_MINIO_PASSWORD:?set in deploy/.env}
+      MINIO_SECRETACCESSKEY: ${MILVUS_MINIO_PASSWORD:?set in deploy/.env}
+      MILVUS_LOG_LEVEL: error
+    ports:
+      - "127.0.0.1:19530:19530"
+    volumes:
+      - milvus-data:/var/lib/milvus
+    depends_on: [etcd, milvus-storage]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9091/healthz"]
+      interval: 15s
+      timeout: 5s
+      retries: 24
+      start_period: 40s
+    networks: [kbmesh]
+
+  neo4j:
+    # 本机 Docker Hub 直连不通,registry-mirror 拉 neo4j 会卡在 fs layer(daocloud 亦然)。
+    # 实测可落地的路子:`docker pull docker.1ms.run/library/neo4j:5.26-community`
+    # 然后 `docker tag` 成本 tag;compose 里保持这个名字不变。
+    image: neo4j:5.26-community
+    container_name: kbmesh-neo4j
+    restart: unless-stopped
+    mem_limit: 1536m
+    environment:
+      NEO4J_AUTH: neo4j/${NEO4J_PASSWORD:?set in deploy/.env}
+      NEO4J_PLUGINS: '["apoc"]'
+      NEO4J_dbms_memory_heap_max__size: 512M
+      NEO4J_dbms_memory_pagecache_size: 512M
+      NEO4J_dbms_security_procedures_unrestricted: apoc.*
+    ports:
+      - "127.0.0.1:7474:7474"
+      - "127.0.0.1:7687:7687"
+    volumes:
+      - neo4j-data:/data
+      - neo4j-logs:/logs
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:7474"]
+      interval: 15s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    networks: [kbmesh]
+
+volumes:
+  etcd-data:
+  minio-data:
+  milvus-data:
+  neo4j-data:
+  neo4j-logs:
+
+networks:
+  kbmesh:
+    driver: bridge

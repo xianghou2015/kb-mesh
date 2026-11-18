@@ -1,0 +1,34 @@
+# --- secrets & local config (never commit) ---
+.env
+.env.*
+!.env.example
+deploy/.env
+*.pem
+*.key
+
+# --- python ---
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+uv.lock.bak
+
+# --- data & artifacts ---
+/data/
+/tmp/
+*.log
+*.sqlite3
+eval_outputs/
+.coverage
+htmlcov/
+
+# --- editors ---
+.idea/
+.vscode/
+.DS_Store
