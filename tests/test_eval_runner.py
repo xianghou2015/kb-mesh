@@ -44,7 +44,6 @@ async def _seed(factory: async_sessionmaker[AsyncSession], *, groups: dict[str, 
 
 @pytest.fixture
 async def rig(engine: AsyncEngine, monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setenv("KBMESH_ENV", "test")
     eng = make_engine(database_url())
     set_engine(eng)
     factory = async_sessionmaker(eng, expire_on_commit=False)

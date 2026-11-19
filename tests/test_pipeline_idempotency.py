@@ -214,13 +214,13 @@ def _keys(tenant_id: str, kb_id: str) -> tuple[str, str]:
 async def _purge_pg(factory: async_sessionmaker[AsyncSession]) -> None:
     ids = [t for t, _k, _d in TENANTS]
     statements = (
-        "delete from platform.relation_edge where tenant_id = any(:ts)",
-        "delete from platform.security_event where tenant_id = any(:ts)",
-        "delete from platform.chunk where tenant_id = any(:ts)",
-        "delete from platform.entity where tenant_id = any(:ts)",
-        "delete from platform.document where tenant_id = any(:ts)",
-        "delete from platform.kb where tenant_id = any(:ts)",
-        "delete from platform.tenant where id = any(:ts)",
+        "delete from platform.kb_edge where tenant_id = any(:ts)",
+        "delete from platform.sec_event where tenant_id = any(:ts)",
+        "delete from platform.kb_chunk where tenant_id = any(:ts)",
+        "delete from platform.kb_entity where tenant_id = any(:ts)",
+        "delete from platform.kb_document where tenant_id = any(:ts)",
+        "delete from platform.kb_base where tenant_id = any(:ts)",
+        "delete from platform.kb_tenant where id = any(:ts)",
     )
     async with factory() as session, session.begin():
         for stmt in statements:
@@ -326,7 +326,7 @@ async def env(shared: tuple[Any, Any], monkeypatch: pytest.MonkeyPatch) -> Async
         _ACTIVE = None
         async with factory() as session, session.begin():
             rows = await session.execute(
-                sa_text("select milvus_pk from platform.chunk where tenant_id = any(:ts)"),
+                sa_text("select milvus_pk from platform.kb_chunk where tenant_id = any(:ts)"),
                 {"ts": [t for t, _k, _d in TENANTS]},
             )
             pks = set(rows.scalars())
@@ -376,7 +376,7 @@ async def _snapshot(env: Env, doc_id: str = DOC_A, tenant_id: str = TENANT_A) ->
         chunks = await ChunkRepo(ctx, session).list_for_doc(doc_id)
         status = (
             await session.execute(
-                sa_text("select parse_status from platform.document where id = :d"), {"d": doc_id}
+                sa_text("select parse_status from platform.kb_document where id = :d"), {"d": doc_id}
             )
         ).scalar()
         snapshot = {
@@ -400,7 +400,7 @@ async def _snapshot(env: Env, doc_id: str = DOC_A, tenant_id: str = TENANT_A) ->
             "entities": sorted(
                 (
                     await session.execute(
-                        sa_text("select entity_key from platform.entity where tenant_id = :t"),
+                        sa_text("select entity_key from platform.kb_entity where tenant_id = :t"),
                         {"t": tenant_id},
                     )
                 ).scalars()
@@ -410,7 +410,7 @@ async def _snapshot(env: Env, doc_id: str = DOC_A, tenant_id: str = TENANT_A) ->
                 for row in (
                     await session.execute(
                         sa_text(
-                            "select src_key, dst_key, rtype from platform.relation_edge where tenant_id = :t"
+                            "select src_key, dst_key, rtype from platform.kb_edge where tenant_id = :t"
                         ),
                         {"t": tenant_id},
                     )
@@ -508,7 +508,7 @@ async def test_policy_change_leaves_no_orphan_vectors(env: Env) -> None:
     async with env.factory() as session, session.begin():
         await session.execute(
             sa_text(
-                "update platform.document set index_version = index_version + 1 where id = :d"
+                "update platform.kb_document set index_version = index_version + 1 where id = :d"
             ),
             {"d": DOC_A},
         )
@@ -603,13 +603,13 @@ async def test_a_poisoned_edge_row_never_reaches_the_graph(env: Env) -> None:
     async with env.factory() as session, session.begin():
         chunk_id = (
             await session.execute(
-                sa_text("select id from platform.chunk where tenant_id = :t order by position limit 1"),
+                sa_text("select id from platform.kb_chunk where tenant_id = :t order by position limit 1"),
                 {"t": TENANT_A},
             )
         ).scalar()
         await session.execute(
             sa_text(
-                "insert into platform.relation_edge"
+                "insert into platform.kb_edge"
                 " (id, tenant_id, kb_id, src_key, dst_key, rtype, evidence, chunk_id, confidence)"
                 " values ('ed-poison', :t, :k, 'component:milvus', 'component:neo4j',"
                 " :rt, '脏数据', :c, 1.0)"

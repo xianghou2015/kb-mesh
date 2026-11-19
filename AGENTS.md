@@ -7,16 +7,16 @@
 ## Commands
 
 - 依赖:`UV_INDEX_URL=https://mirrors.aliyun.com/pypi/simple/ UV_HTTP_TIMEOUT=120 uv pip install -p .venv/bin/python -e ".[dev]"`。直连 PyPI 在这台机器上会被掐断,不要退回默认 index。
-- 测试:`.venv/bin/pytest`(`asyncio_mode = "auto"`,异步用例不需要装饰器)。跑在 `KBMESH_TEST_DB_URL` 指向的 `kbmesh_test` 上,并且**需要 Milvus 与 Neo4j 容器在跑** —— 数据层与隔离用例打真引擎,连不上就 fail,不要加 skip。
+- 测试:`.venv/bin/pytest`(`asyncio_mode = "auto"`,异步用例不需要装饰器)。跑在 `KBMESH_DB_URL` 指向的 `kbmesh` 上,并且**需要 Milvus 与 Neo4j 容器在跑** —— 数据层与隔离用例打真引擎,连不上就 fail,不要加 skip。
 - Lint:`.venv/bin/ruff check src scripts tests` — `line-length = 110`,配置见 `pyproject.toml`。
 - 中间件:`docker compose -f deploy/docker-compose.yml up -d`(etcd + Milvus 内部对象存储 + Milvus + Neo4j,全部只绑 `127.0.0.1`)。
 - 能力探针(改 schema 或怀疑引擎行为时先跑):`.venv/bin/python scripts/verify_milvus.py`、`.venv/bin/python scripts/verify_neo4j.py`、`.venv/bin/python scripts/verify_models.py`,退出码非 0 表示能力不达标。
 - 三段式初始化(PG 迁移 → Milvus 集合 → Neo4j 约束,顺序即 §12 上线顺序):`.venv/bin/python scripts/bootstrap_stacks.py`;只想看现状加 `--check`。
-- 单条命令跑迁移:`KBMESH_ENV=test .venv/bin/alembic upgrade head`(test 库)或不带前缀(应用库 `kbmesh`)。`alembic check` 必须报 "No new upgrade operations detected",有漂移就说明模型与库里不一致。
+- 单条命令跑迁移:`.venv/bin/alembic upgrade head`。`alembic check` 必须报 "No new upgrade operations detected",有漂移就说明模型与库里不一致。
 
 ## 中间件落点(硬约定)
 
-- **PG / Redis / 业务 MinIO 由部署环境提供**,地址与凭据通过环境变量注入、不入仓,本机不要为它们再起容器。库 `kbmesh` / `kbmesh_test`,Redis db5/db6,bucket `kbmesh-artifact`。
+- **PG / Redis / 业务 MinIO 由部署环境提供**,地址与凭据通过环境变量注入、不入仓,本机不要为它们再起容器。库 `kbmesh`,Redis db5/db6,bucket `kbmesh-artifact`。
 - **只有 Milvus 与 Neo4j 在本机 Docker 跑**——PG16 不能当向量库用(`pgvector` 与 Milvus 的 BM25/分区键能力不是一回事),Neo4j 也没有可复用的现成实例。
 - `deploy/.env` 里的凭据只服务本地容器,已被 `.gitignore` 排除;`milvus-storage` 是 Milvus 的内部后端,和业务 MinIO 无关,不要混着叫。
 
@@ -31,7 +31,7 @@
 ## Secrets 与外部服务
 
 - `.env` / `deploy/.env` / `*.key` 永不进仓;口令、API key 不出现在代码、文档、日志、trace 里。**打印连接串也算违规**:脚本只报 `database@host:port`,不要 `print(url)`。
-- `KBMESH_DASHSCOPE_API_KEY` 在仓库 `.env` 里保持占位 `sk-xxx`;需要真模型的验收只在那一条命令上临时注入环境变量,且**只跑 test 库**。
+- `KBMESH_DASHSCOPE_API_KEY` 在仓库 `.env` 里保持占位 `sk-xxx`;需要真模型的验收只在那一条命令上临时注入环境变量。
 - 百炼只读:只调 `Retrieve` / embedding / rerank / chat,不得增删改托管知识库;要写路径的验收一律 mock。
 
 ## 文档

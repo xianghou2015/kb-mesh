@@ -283,7 +283,7 @@ async def test_audit_read_is_itself_tenant_filtered(session: AsyncSession) -> No
     # 只数这两个租户名下的行:审计表是共享库里的活表,拿全表行数做断言必然随用例顺序漂移
     scoped = await session.execute(
         text(
-            "SELECT count(*) FROM platform.security_event "
+            "SELECT count(*) FROM platform.sec_event "
             "WHERE tenant_id IN (:a, :b) AND path = ''"
         ),
         {"a": a["tenant"], "b": b["tenant"]},

@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-import os
 import sys
 from pathlib import Path
 
@@ -55,9 +54,9 @@ async def _checkpoint_schema(url: str, *, check_only: bool) -> str:
 
 def bootstrap_postgres(check_only: bool) -> str:
     settings = get_settings()
-    url = settings.test_db_url if os.getenv("KBMESH_ENV") == "test" else settings.db_url
+    url = settings.db_url
     if not url:
-        raise SystemExit("没有数据库 URL:设 KBMESH_DB_URL 或 KBMESH_ENV=test")
+        raise SystemExit("没有数据库 URL:设 KBMESH_DB_URL")
 
     cfg = Config(str(REPO / "alembic.ini"))
     cfg.set_main_option("script_location", str(REPO / "src" / "kbmesh" / "db" / "migrations"))

@@ -17,34 +17,34 @@ from conftest import make_eval_set
 from kbmesh.db.models import Chunk, EvalRun, EvalSet
 
 #: 审计流水:未认证请求没有租户可归属,是唯一允许 tenant_id 为空的表(见 models.SecurityEvent)。
-NULLABLE_TENANT_TABLES = {"security_event"}
+NULLABLE_TENANT_TABLES = {"sec_event"}
 
 #: 业务表(不含 tenant 自身):防线①要求每一张都带非空 tenant_id。
 TENANT_SCOPED_TABLES = [
-    "app_user",
-    "kb",
-    "document",
-    "chunk",
-    "entity",
-    "relation_edge",
+    "kb_user",
+    "kb_base",
+    "kb_document",
+    "kb_chunk",
+    "kb_entity",
+    "kb_edge",
     "trace_run",
-    "feedback",
-    "online_eval",
+    "kb_feedback",
+    "eval_online",
     "eval_set",
     "eval_run",
 ]
 
 #: 唯一约束/复合索引至少覆盖到的列对(§6.1:漏了它,带租户过滤的扫描照样全表)。
 REQUIRED_COMPOSITES = {
-    "app_user": ("tenant_id", "username"),
-    "kb": ("tenant_id", "name"),
-    "document": ("tenant_id", "kb_id", "parse_status"),
-    "chunk": ("tenant_id", "chunk_key"),
-    "entity": ("tenant_id", "entity_key"),
-    "relation_edge": ("tenant_id", "src_key", "dst_key", "rtype"),
+    "kb_user": ("tenant_id", "username"),
+    "kb_base": ("tenant_id", "name"),
+    "kb_document": ("tenant_id", "kb_id", "parse_status"),
+    "kb_chunk": ("tenant_id", "chunk_key"),
+    "kb_entity": ("tenant_id", "entity_key"),
+    "kb_edge": ("tenant_id", "src_key", "dst_key", "rtype"),
     "trace_run": ("tenant_id", "created_at"),
-    "feedback": ("tenant_id", "created_at"),
-    "online_eval": ("tenant_id", "created_at"),
+    "kb_feedback": ("tenant_id", "created_at"),
+    "eval_online": ("tenant_id", "created_at"),
     "eval_set": ("tenant_id", "name", "version"),
 }
 

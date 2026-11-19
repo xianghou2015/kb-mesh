@@ -21,6 +21,7 @@ from kbmesh.core.tenancy import TenantContext
 from kbmesh.db.models import (
     FINAL_STATUSES,
     STAGE_ORDER,
+    AppUser,
     Chunk,
     Document,
     Entity,
@@ -34,6 +35,7 @@ from kbmesh.db.models import (
     ParseStage,
     RelationEdge,
     SecurityEvent,
+    Tenant,
     TraceRun,
     TraceStep,
 )
@@ -115,6 +117,14 @@ class KBRepo(_Scoped):
         if row is None:
             await self.deny("kb_scope_denied", f"kb:{kb_id}")
         return row  # type: ignore[return-value]
+
+    async def delete(self, kb_id: str) -> None:
+        await self.require_write(f"kb:{kb_id}")
+        row = await self.get(kb_id)
+        if row is None:
+            await self.deny("kb_scope_denied", f"kb:{kb_id}")
+        await self.session.delete(row)
+        await self.session.flush()
 
 
 class DocumentRepo(_Scoped):
@@ -778,3 +788,50 @@ async def list_security_events(
         stmt = stmt.where(SecurityEvent.tenant_id == ctx.tenant_id)
     stmt = stmt.order_by(SecurityEvent.created_at.desc()).limit(limit)
     return list((await session.execute(stmt)).scalars())
+
+
+class UserRepo(_Scoped):
+    async def list(self) -> list[AppUser]:
+        return list((await self.session.execute(self.tenant_only(AppUser))).scalars())
+
+    async def create(self, username: str, password_hash: str, role: str) -> AppUser:
+        await self.require_write(f"user:{username}")
+        row = AppUser(
+            tenant_id=self.ctx.tenant_id, username=username, password_hash=password_hash, role=role
+        )
+        self.session.add(row)
+        await self.session.flush()
+        return row
+
+    async def delete(self, user_id: str) -> None:
+        await self.require_write(f"user:{user_id}")
+        stmt = self.tenant_only(AppUser).where(AppUser.id == user_id)
+        row = (await self.session.execute(stmt)).scalar_one_or_none()
+        if row is None:
+            await self.deny("kb_scope_denied", f"user:{user_id}")
+        await self.session.delete(row)
+        await self.session.flush()
+
+
+class TenantAdminRepo:
+    """跨租户管理,仅 platform_admin 可用。ctx 仍必传:审计留痕需要身份。"""
+
+    def __init__(self, ctx: TenantContext, session: AsyncSession) -> None:
+        self.ctx = ctx
+        self.session = session
+
+    async def list_tenants(self) -> list[Tenant]:
+        return list((await self.session.execute(select(Tenant).order_by(Tenant.created_at))).scalars())
+
+    async def create_tenant(self, name: str) -> Tenant:
+        row = Tenant(name=name)
+        self.session.add(row)
+        await self.session.flush()
+        return row
+
+    async def delete_tenant(self, target_id: str) -> None:
+        row = (await self.session.execute(select(Tenant).where(Tenant.id == target_id))).scalar_one_or_none()
+        if row is None:
+            raise IllegalTransition(f"租户不存在: {target_id}")
+        await self.session.delete(row)
+        await self.session.flush()

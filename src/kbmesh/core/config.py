@@ -36,7 +36,7 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    env: Literal["dev", "test", "prod"] = "dev"
+    env: Literal["dev", "prod"] = "dev"
     secret_key: str = ""
     jwt_secret: str = ""
     jwt_algorithm: str = "HS256"
@@ -53,7 +53,6 @@ class Settings(BaseSettings):
 
     # --- data stores ---
     db_url: str = ""
-    test_db_url: str = ""
     #: The PG deployment keeps `vector` in schema `extensions`, and the server default
     #: search_path is `"$user", public` — so a `vector` column does not resolve unless the session
     #: opts in. Setting it per connection instead of per role/database: a database-level search_path
@@ -136,16 +135,11 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def _prod_secrets_strong(self) -> Settings:
-        # 短于 32 字节的 HMAC 密钥可被离线爆破(RFC 7518 §3.2);dev/test 图省事允许,prod 拦下。
         if self.env == "prod" and len(self.jwt_secret) < 32:
             raise ValueError("KBMESH_JWT_SECRET 在 prod 至少 32 字节")
         if self.env == "prod" and not self.secret_key:
             raise ValueError("KBMESH_SECRET_KEY 在 prod 必填")
         return self
-
-    @property
-    def is_test(self) -> bool:
-        return self.env == "test"
 
 
 @lru_cache

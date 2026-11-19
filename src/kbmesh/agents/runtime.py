@@ -81,16 +81,14 @@ def serde_for(settings: Settings) -> JsonPlusSerializer:
 
 
 def checkpoint_dsn(settings: Settings) -> str:
-    """选出这次要用的库,再把 asyncpg URL 换成 libpq 串,并丢掉 `?` 之后的查询串。
+    """把 asyncpg URL 换成 libpq 串,并丢掉 `?` 之后的查询串。
 
-    选库这一条是安全闸不是便利:`env=test` 时必须走 `test_db_url`,否则测试会往 dev 库(现网
-    连的就是生产)建检查点表 —— 表名不带 schema 的那件事,连库也是不带 schema 的。
     剥掉 query 段是必须的:search_path 走 `options` 关键字,和 URL 参数撞在一起就变成两个互不
     相识的 search_path,谁赢取决于 psycopg 的解析顺序 —— 这种「看起来连上了其实连错库」最难查。
     """
-    url = settings.test_db_url if settings.is_test else settings.db_url
+    url = settings.db_url
     if not url:
-        raise IllegalTransition("没有可用的数据库 URL:设 KBMESH_DB_URL 或 KBMESH_TEST_DB_URL")
+        raise IllegalTransition("没有可用的数据库 URL:设 KBMESH_DB_URL")
     return url.replace("postgresql+asyncpg://", "postgresql://", 1).split("?", 1)[0]
 
 

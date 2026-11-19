@@ -1,4 +1,4 @@
-"""Trace 查询(FR-401/404 的只读面):run 列表、单 run 及其 steps。
+"""Trace 查询(FR-401/404 的只读面):run 列表、单 run 及其 steps、拓扑可视化。
 
 纯只读,不带写角色校验 —— 但租户谓词一道不少(`TraceRepo` 的 `_Scoped` 兜着)。
 """
@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from kbmesh.api.deps import get_ctx, get_db
@@ -122,3 +122,12 @@ async def get_run(
     repo = TraceRepo(ctx, db)
     run = await repo.get_run(run_id)
     return {**_run_payload(run), "steps": [_step_payload(step) for step in await repo.list_steps(run_id)]}
+
+
+@router.get("/graph/topology")
+async def graph_topology(request: Request) -> dict[str, Any]:
+    """FR-401:状态图拓扑可视化,返回 mermaid 文本与节点列表。"""
+    from kbmesh.agents.graph import mermaid, node_names
+
+    deps = request.app.state.graph_deps
+    return {"mermaid": mermaid(deps), "nodes": node_names(deps)}

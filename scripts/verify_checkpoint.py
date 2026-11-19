@@ -1,8 +1,7 @@
 """LangGraph 检查点(PostgresSaver)能力实测:钉死技术实现文档 §7.2「中断可跨重启恢复」的落地前提。
 
 跑法(需要 PG 可连):
-    .venv/bin/python scripts/verify_checkpoint.py                 # 应用库 kbmesh
-    KBMESH_ENV=test .venv/bin/python scripts/verify_checkpoint.py  # test 库
+    .venv/bin/python scripts/verify_checkpoint.py
 
 为什么编排代码落笔前必须先跑这个:检查点表由 `saver.setup()` 自建、不归 Alembic,而它的
 MIGRATIONS 里表名**不带 schema** —— 建到哪张 schema 完全由连接的 `search_path` 第一位决定。
@@ -85,9 +84,9 @@ def capture_logs() -> Iterator[list[str]]:
 def psycopg_dsn() -> str:
     """asyncpg 串换成 psycopg 串,并且**剥掉 query 段**(里面的 search_path 会把表建错地方)。"""
     settings = get_settings()
-    url = settings.test_db_url if os.getenv("KBMESH_ENV") == "test" else settings.db_url
+    url = settings.db_url
     if not url:
-        raise SystemExit("没有数据库 URL:设 KBMESH_DB_URL 或 KBMESH_ENV=test")
+        raise SystemExit("没有数据库 URL:设 KBMESH_DB_URL")
     return url.replace("postgresql+asyncpg://", "postgresql://", 1).split("?", 1)[0]
 
 

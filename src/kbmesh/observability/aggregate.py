@@ -114,6 +114,9 @@ def summarize_runs(
     def rate(n: int) -> float:
         return (n / total) if total else 0.0
 
+    route_hits = _route_hits(steps_by_run)
+    route_alerts = [r for r in ROUTES if total > 0 and route_hits[r] == 0]
+
     return {
         "runs": total,
         **statuses,
@@ -125,7 +128,8 @@ def summarize_runs(
         "token_in": token_in,
         "token_out": token_out,
         "cost_usd": cost,
-        "route_hits": _route_hits(steps_by_run),
+        "route_hits": route_hits,
+        "route_alerts": route_alerts,
         "stage_latency_ms": _stage_latency(steps_by_run),
         "tokens_by_stage": tokens_by_stage,
         "tokens_by_model": tokens_by_model,

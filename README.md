@@ -26,7 +26,7 @@ src/kbmesh/
   observability/  版本化单价表、按租户聚合
   db/             模型、仓储、Alembic 迁移
   security/       令牌、密码、租户中间件
-scripts/          能力探针、三段式初始化
+scripts/          能力探针、三段式初始化、种子数据
 tests/            验收测试(数据层/隔离/恢复全部打真引擎)
 ```
 
@@ -44,10 +44,16 @@ docker compose -f deploy/docker-compose.yml up -d
 .venv/bin/python scripts/bootstrap_stacks.py
 
 # 4) 测试
-KBMESH_ENV=test .venv/bin/pytest
+.venv/bin/pytest
 
 # 5) Lint
 .venv/bin/ruff check src tests scripts
+
+# 6) 种子数据(演示租户 + 管理员)
+.venv/bin/python scripts/seed_demo.py
+
+# 7) 后端
+.venv/bin/uvicorn kbmesh.api.app:create_app --factory --host 127.0.0.1 --port 8000
 ```
 
 PG / Redis / 业务 MinIO 由部署环境提供,地址与凭据通过 `.env` 注入;本仓库只在本机 Docker 起 Milvus 与 Neo4j。`KBMESH_DASHSCOPE_API_KEY` 仓库内保持占位 `sk-xxx`,真模型验收只在临时注入环境变量的那一条命令上跑。
@@ -81,7 +87,7 @@ PG / Redis / 业务 MinIO 由部署环境提供,地址与凭据通过 `.env` 注
 - 四层指标(检索/答案/Agent/系统)在 `kbmesh.eval.metrics`,公式唯一,边界有单测。
 - 离线运行器每完成一题提交 `eval_run.cursor_case_id`;中断后续跑不重复计分。
 - 报告按 `group_key` 切片,并给出相对基线的逐项差值;劣化超过 `regression_gate` 的样本可导出 CSV。
-- 在线评估:格式/引用/安全全量规则 + faithfulness/answer_relevancy 抽样 judge;结果落 `platform.online_eval`。
+- 在线评估:格式/引用/安全全量规则 + faithfulness/answer_relevancy 抽样 judge;结果落 `platform.eval_online`。
 - 成本:`cost = token_in×单价 + token_out×单价 + rerank 次数×单价`;单价表版本号进 `trace_run.config_snapshot`。
 
 ## 安全边界(2026-11-06 安全评审后加固)

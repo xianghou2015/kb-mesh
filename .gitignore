@@ -28,7 +28,11 @@ eval_outputs/
 .coverage
 htmlcov/
 
+# --- frontend (本地开发,不入仓) ---
+frontend/
+
 # --- editors ---
 .idea/
 .vscode/
+.qoder/
 .DS_Store

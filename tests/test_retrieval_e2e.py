@@ -128,13 +128,13 @@ class FakeGateway:
 async def _purge(factory: async_sessionmaker) -> None:
     ids = [TENANT_A, TENANT_B]
     statements = (
-        "delete from platform.relation_edge where tenant_id = any(:ts)",
-        "delete from platform.security_event where tenant_id = any(:ts)",
-        "delete from platform.chunk where tenant_id = any(:ts)",
-        "delete from platform.entity where tenant_id = any(:ts)",
-        "delete from platform.document where tenant_id = any(:ts)",
-        "delete from platform.kb where tenant_id = any(:ts)",
-        "delete from platform.tenant where id = any(:ts)",
+        "delete from platform.kb_edge where tenant_id = any(:ts)",
+        "delete from platform.sec_event where tenant_id = any(:ts)",
+        "delete from platform.kb_chunk where tenant_id = any(:ts)",
+        "delete from platform.kb_entity where tenant_id = any(:ts)",
+        "delete from platform.kb_document where tenant_id = any(:ts)",
+        "delete from platform.kb_base where tenant_id = any(:ts)",
+        "delete from platform.kb_tenant where id = any(:ts)",
     )
     async with factory() as session, session.begin():
         for stmt in statements:

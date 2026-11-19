@@ -48,7 +48,6 @@ async def _purge(engine: AsyncEngine) -> None:
 @pytest.fixture
 async def rig(engine, monkeypatch: pytest.MonkeyPatch):
     """env=test + 真库 + 替身存储/Celery 的应用;KB_A 由 INDEXER 建好。"""
-    monkeypatch.setenv("KBMESH_ENV", "test")
     clear_settings_cache()
     eng = make_engine(database_url())
     set_engine(eng)

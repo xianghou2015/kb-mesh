@@ -50,7 +50,6 @@ async def _purge(engine: AsyncEngine) -> None:
 
 @pytest.fixture
 async def rig(engine, monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setenv("KBMESH_ENV", "test")
     clear_settings_cache()
     eng = make_engine(database_url())
     set_engine(eng)
@@ -468,7 +467,7 @@ async def test_execute_eval_run_requires_admin(rig):
     resp = await rig.client.post(f"/api/eval-runs/{run_id}/execute", headers=bearer(CTX_INDEX))
     assert resp.status_code == 202, resp.text
     assert resp.json()["run_id"] == run_id
-    assert resp.json()["submitted"] is False  # test 环境不投 worker
+    assert resp.json()["submitted"] is True
     # 超长/非法 run_id 在路由层就被 422 挡下,不会带着任意长度写审计
     resp = await rig.client.post(
         f"/api/eval-runs/{'x' * 100}/execute", headers=bearer(CTX_INDEX)

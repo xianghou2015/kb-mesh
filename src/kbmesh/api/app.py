@@ -19,7 +19,7 @@ from sqlalchemy import text as sa_text
 from kbmesh.agents.nodes import GraphDeps
 from kbmesh.agents.runtime import CKPT_TABLES, SaverHandle
 from kbmesh.api.body_limit import MaxBodySizeMiddleware
-from kbmesh.api.routers import auth, chat, documents, evals, feedback, traces
+from kbmesh.api.routers import admin, auth, chat, documents, evals, feedback, kbs, traces
 from kbmesh.core.config import get_settings
 from kbmesh.core.errors import KbmError
 from kbmesh.db.base import get_session_factory
@@ -61,6 +61,8 @@ def create_app(*, deps: GraphDeps | None = None, saver: SaverHandle | None = Non
     app.add_middleware(MaxBodySizeMiddleware, max_bytes=settings.max_document_bytes)
     app.add_exception_handler(KbmError, _kbm_error_handler)
     app.include_router(auth.router)
+    app.include_router(admin.router)
+    app.include_router(kbs.router)
     app.include_router(documents.router)
     app.include_router(chat.router)
     app.include_router(feedback.router)

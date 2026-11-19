@@ -72,11 +72,8 @@ def evaluate_online(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def enqueue_online_eval(payload: dict[str, Any]) -> None:
-    """同步入队;test 环境不投(没有 worker),broker 故障也不影响问答。"""
+    """同步入队;broker 故障也不影响问答。"""
     settings = get_settings()
-    if settings.env == "test":
-        return
-    # 评估通道不得反向影响主链路
     with contextlib.suppress(Exception):
         evaluate_online.apply_async(args=[payload], queue=settings.celery_queue)
 
@@ -112,14 +109,12 @@ def run_eval(payload: dict[str, Any]) -> dict[str, Any]:
 def enqueue_eval_run(
     run_id: str, tenant: str, *, limit: int | None = None, top_k: int | None = None
 ) -> bool:
-    """把离线评估投给 worker;test 环境不投(没有 worker),由测试直接 await 运行器。
+    """把离线评估投给 worker。
 
     参数名刻意不是 `tenant_id`:仓库的 AST 红线禁止公开函数暴露裸 tenant_id 形参,
     身份只从验签后的 ctx 来;这里拿到的 `tenant` 已经是调用方从 ctx 取出的值。
     """
     settings = get_settings()
-    if settings.env == "test":
-        return False
     # broker 故障不在这里吞:调用方(API)应看到 5xx,而不是一个永远不会跑的 202。
     run_eval.apply_async(
         args=[{"run_id": run_id, "tenant_id": tenant, "limit": limit, "top_k": top_k}],

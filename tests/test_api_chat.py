@@ -178,7 +178,6 @@ async def _purge(engine: AsyncEngine) -> None:
 @pytest.fixture
 async def rig(monkeypatch: pytest.MonkeyPatch):
     """环境 → 测试库 → 真检查点引擎 + 桩网关的应用。"""
-    monkeypatch.setenv("KBMESH_ENV", "test")
     clear_settings_cache()
     engine = make_engine(database_url())
     set_engine(engine)

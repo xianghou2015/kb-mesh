@@ -40,7 +40,7 @@ def build_app() -> FastAPI:
 async def audit_rows(engine: AsyncEngine, path: str) -> list[tuple[str, str | None]]:
     async with engine.connect() as conn:
         result = await conn.execute(
-            text("SELECT event, tenant_id FROM platform.security_event WHERE path = :p"), {"p": path}
+            text("SELECT event, tenant_id FROM platform.sec_event WHERE path = :p"), {"p": path}
         )
         return [(row[0], row[1]) for row in result]
 
@@ -50,14 +50,14 @@ async def client(engine: AsyncEngine) -> httpx.AsyncClient:
     """审计走独立连接、真提交,所以这个 fixture 负责前后清库,不给共享测试库留残渣。"""
     set_engine(engine)
     async with engine.begin() as conn:
-        await conn.execute(text("DELETE FROM platform.security_event WHERE path LIKE '/api/mw-%'"))
+        await conn.execute(text("DELETE FROM platform.sec_event WHERE path LIKE '/api/mw-%'"))
     transport = httpx.ASGITransport(app=build_app())
     try:
         async with httpx.AsyncClient(transport=transport, base_url="http://t") as c:
             yield c
     finally:
         async with engine.begin() as conn:
-            await conn.execute(text("DELETE FROM platform.security_event WHERE path LIKE '/api/mw-%'"))
+            await conn.execute(text("DELETE FROM platform.sec_event WHERE path LIKE '/api/mw-%'"))
         # 故意不还原全局引擎:置空会让后续代码按 settings.db_url 重建,而那个指向 dev 库。
         # 留在测试库上才是安全的默认。
 
@@ -101,11 +101,11 @@ async def test_unauthenticated_event_has_null_tenant(engine: AsyncEngine) -> Non
             await session.flush()
             count = await session.scalar(
                 text(
-                    "SELECT count(*) FROM platform.security_event "
+                    "SELECT count(*) FROM platform.sec_event "
                     "WHERE path = '/api/mw-null' AND tenant_id IS NULL"
                 )
             )
             assert count == 1
     finally:
         async with engine.begin() as conn:
-            await conn.execute(text("DELETE FROM platform.security_event WHERE path = '/api/mw-null'"))
+            await conn.execute(text("DELETE FROM platform.sec_event WHERE path = '/api/mw-null'"))

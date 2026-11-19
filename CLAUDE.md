@@ -23,29 +23,28 @@ UV_INDEX_URL=https://mirrors.aliyun.com/pypi/simple/ UV_HTTP_TIMEOUT=120 \
 # Milvus / Neo4j 在本机 Docker 跑;PG / Redis / 业务 MinIO 由 .env 指向的部署环境提供
 docker compose -f deploy/docker-compose.yml up -d
 
-# 三段式初始化:PG 迁移 → Milvus 集合 → Neo4j 约束(测试库加 KBMESH_ENV=test)
+# 三段式初始化:PG 迁移 → Milvus 集合 → Neo4j 约束
 .venv/bin/python scripts/bootstrap_stacks.py
 .venv/bin/python scripts/bootstrap_stacks.py --check
-KBMESH_ENV=test .venv/bin/python scripts/bootstrap_stacks.py
 ```
 
 ### 测试与 lint
 
 ```bash
-KBMESH_ENV=test .venv/bin/pytest
+.venv/bin/pytest
 # 单条用例
-KBMESH_ENV=test .venv/bin/pytest tests/test_rrf.py::test_score_matches_the_formula_in_the_doc -q
+.venv/bin/pytest tests/test_rrf.py::test_score_matches_the_formula_in_the_doc -q
 
 .venv/bin/ruff check src scripts tests
 ```
 
-测试跑在 `KBMESH_TEST_DB_URL` 指向的 `kbmesh_test` 上,并需要 Milvus 与 Neo4j 容器可达;数据层与隔离用例打真引擎,连不上会 fail 而不是 skip,不要加 `skip`。
+测试跑在 `KBMESH_DB_URL` 指向的 `kbmesh` 上,并需要 Milvus 与 Neo4j 容器可达;数据层与隔离用例打真引擎,连不上会 fail 而不是 skip,不要加 `skip`。
 
 ### 数据库迁移
 
 ```bash
-KBMESH_ENV=test .venv/bin/alembic upgrade head
-KBMESH_ENV=test .venv/bin/alembic check   # 必须输出 No new upgrade operations detected
+.venv/bin/alembic upgrade head
+.venv/bin/alembic check   # 必须输出 No new upgrade operations detected
 ```
 
 ### 能力探针

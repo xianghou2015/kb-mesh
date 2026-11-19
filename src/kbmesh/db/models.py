@@ -84,7 +84,7 @@ FINAL_STATUSES = ("answered", "refused", "error", "expired")
 
 
 class Tenant(Base):
-    __tablename__ = "tenant"
+    __tablename__ = "kb_tenant"
     __table_args__ = {"schema": SCHEMA}
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True, default=lambda: new_id("tnt-"))
@@ -94,15 +94,15 @@ class Tenant(Base):
 
 
 class AppUser(Base):
-    __tablename__ = "app_user"
+    __tablename__ = "kb_user"
     __table_args__ = (
-        UniqueConstraint("tenant_id", "username", name="uq_app_user_tenant_username"),
-        Index("ix_app_user_tenant_username", "tenant_id", "username"),
+        UniqueConstraint("tenant_id", "username", name="uq_kb_user_tenant_username"),
+        Index("ix_kb_user_tenant_username", "tenant_id", "username"),
         {"schema": SCHEMA},
     )
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True, default=new_id)
-    tenant_id: Mapped[str] = mapped_column(ForeignKey(f"{SCHEMA}.tenant.id"), index=True)
+    tenant_id: Mapped[str] = mapped_column(ForeignKey(f"{SCHEMA}.kb_tenant.id"), index=True)
     username: Mapped[str] = mapped_column(String(120))
     #: Role names come from `tenancy.ALL_ROLES`; the token claim is the authority, this column is
     #: what the management UI shows and what issued tokens are checked against on rotation.
@@ -112,15 +112,15 @@ class AppUser(Base):
 
 
 class KnowledgeBase(Base):
-    __tablename__ = "kb"
+    __tablename__ = "kb_base"
     __table_args__ = (
-        UniqueConstraint("tenant_id", "name", name="uq_kb_tenant_name"),
-        Index("ix_kb_tenant_name", "tenant_id", "name"),
+        UniqueConstraint("tenant_id", "name", name="uq_kb_base_tenant_name"),
+        Index("ix_kb_base_tenant_name", "tenant_id", "name"),
         {"schema": SCHEMA},
     )
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True, default=lambda: new_id("kb-"))
-    tenant_id: Mapped[str] = mapped_column(ForeignKey(f"{SCHEMA}.tenant.id"), index=True)
+    tenant_id: Mapped[str] = mapped_column(ForeignKey(f"{SCHEMA}.kb_tenant.id"), index=True)
     name: Mapped[str] = mapped_column(String(200))
     #: Recorded per KB because the embedding model is a rebuild input: a KB whose model differs
     #: from the current default must be re-indexed with *its own* model, not the new one.
@@ -130,16 +130,16 @@ class KnowledgeBase(Base):
 
 
 class Document(Base):
-    __tablename__ = "document"
+    __tablename__ = "kb_document"
     __table_args__ = (
-        Index("ix_document_tenant_kb_status", "tenant_id", "kb_id", "parse_status"),
-        UniqueConstraint("tenant_id", "kb_id", "sha256", name="uq_document_tenant_kb_sha256"),
+        Index("ix_kb_document_tenant_kb_status", "tenant_id", "kb_id", "parse_status"),
+        UniqueConstraint("tenant_id", "kb_id", "sha256", name="uq_kb_document_tenant_kb_sha256"),
         {"schema": SCHEMA},
     )
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True, default=lambda: new_id("doc-"))
-    tenant_id: Mapped[str] = mapped_column(ForeignKey(f"{SCHEMA}.tenant.id"), index=True)
-    kb_id: Mapped[str] = mapped_column(ForeignKey(f"{SCHEMA}.kb.id"), index=True)
+    tenant_id: Mapped[str] = mapped_column(ForeignKey(f"{SCHEMA}.kb_tenant.id"), index=True)
+    kb_id: Mapped[str] = mapped_column(ForeignKey(f"{SCHEMA}.kb_base.id"), index=True)
     source_uri: Mapped[str] = mapped_column(String(600))
     mime: Mapped[str] = mapped_column(String(120), default="")
     sha256: Mapped[str] = mapped_column(String(64))
@@ -158,19 +158,19 @@ class Document(Base):
 
 
 class Chunk(Base):
-    __tablename__ = "chunk"
+    __tablename__ = "kb_chunk"
     __table_args__ = (
         # §5.3 幂等第一层:切片键唯一,重跑走 ON CONFLICT DO NOTHING
-        UniqueConstraint("tenant_id", "chunk_key", name="uq_chunk_tenant_key"),
-        Index("ix_chunk_tenant_kb_doc", "tenant_id", "kb_id", "doc_id"),
-        Index("ix_chunk_tenant_doc", "tenant_id", "doc_id"),
+        UniqueConstraint("tenant_id", "chunk_key", name="uq_kb_chunk_tenant_key"),
+        Index("ix_kb_chunk_tenant_kb_doc", "tenant_id", "kb_id", "doc_id"),
+        Index("ix_kb_chunk_tenant_doc", "tenant_id", "doc_id"),
         {"schema": SCHEMA},
     )
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True, default=lambda: new_id("chk-"))
-    tenant_id: Mapped[str] = mapped_column(ForeignKey(f"{SCHEMA}.tenant.id"), index=True)
-    kb_id: Mapped[str] = mapped_column(ForeignKey(f"{SCHEMA}.kb.id"), index=True)
-    doc_id: Mapped[str] = mapped_column(ForeignKey(f"{SCHEMA}.document.id"), index=True)
+    tenant_id: Mapped[str] = mapped_column(ForeignKey(f"{SCHEMA}.kb_tenant.id"), index=True)
+    kb_id: Mapped[str] = mapped_column(ForeignKey(f"{SCHEMA}.kb_base.id"), index=True)
+    doc_id: Mapped[str] = mapped_column(ForeignKey(f"{SCHEMA}.kb_document.id"), index=True)
     chunk_key: Mapped[str] = mapped_column(String(64))
     heading_path: Mapped[str] = mapped_column(String(600), default="")
     level: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
@@ -191,16 +191,16 @@ class Chunk(Base):
 
 
 class Entity(Base):
-    __tablename__ = "entity"
+    __tablename__ = "kb_entity"
     __table_args__ = (
-        UniqueConstraint("tenant_id", "entity_key", name="uq_entity_tenant_key"),
-        Index("ix_entity_tenant_kb", "tenant_id", "kb_id"),
+        UniqueConstraint("tenant_id", "entity_key", name="uq_kb_entity_tenant_key"),
+        Index("ix_kb_entity_tenant_kb", "tenant_id", "kb_id"),
         {"schema": SCHEMA},
     )
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True, default=lambda: new_id("ent-"))
-    tenant_id: Mapped[str] = mapped_column(ForeignKey(f"{SCHEMA}.tenant.id"), index=True)
-    kb_id: Mapped[str] = mapped_column(ForeignKey(f"{SCHEMA}.kb.id"), index=True)
+    tenant_id: Mapped[str] = mapped_column(ForeignKey(f"{SCHEMA}.kb_tenant.id"), index=True)
+    kb_id: Mapped[str] = mapped_column(ForeignKey(f"{SCHEMA}.kb_base.id"), index=True)
     #: Normalized label + alias-table collapse, computed before the write. Neo4j MERGE keys on it,
     #: so an unstable key means duplicate nodes on every re-index.
     entity_key: Mapped[str] = mapped_column(String(200))
@@ -211,23 +211,23 @@ class Entity(Base):
 
 
 class RelationEdge(Base):
-    __tablename__ = "relation_edge"
+    __tablename__ = "kb_edge"
     __table_args__ = (
-        UniqueConstraint("tenant_id", "src_key", "dst_key", "rtype", name="uq_edge_tenant_src_dst_type"),
-        Index("ix_edge_tenant_kb", "tenant_id", "kb_id"),
+        UniqueConstraint("tenant_id", "src_key", "dst_key", "rtype", name="uq_kb_edge_tenant_src_dst_type"),
+        Index("ix_kb_edge_tenant_kb", "tenant_id", "kb_id"),
         {"schema": SCHEMA},
     )
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True, default=new_id)
-    tenant_id: Mapped[str] = mapped_column(ForeignKey(f"{SCHEMA}.tenant.id"), index=True)
-    kb_id: Mapped[str] = mapped_column(ForeignKey(f"{SCHEMA}.kb.id"), index=True)
+    tenant_id: Mapped[str] = mapped_column(ForeignKey(f"{SCHEMA}.kb_tenant.id"), index=True)
+    kb_id: Mapped[str] = mapped_column(ForeignKey(f"{SCHEMA}.kb_base.id"), index=True)
     src_key: Mapped[str] = mapped_column(String(200))
     dst_key: Mapped[str] = mapped_column(String(200))
     #: Whitelisted relation name. Neo4j cannot parameterize a relationship type, so the same value
     #: lives as a property on `[:REL]` and the graph layer filters it with `r.rtype IN $types`.
     rtype: Mapped[str] = mapped_column(String(60))
     evidence: Mapped[str] = mapped_column(Text)
-    chunk_id: Mapped[str] = mapped_column(ForeignKey(f"{SCHEMA}.chunk.id"), index=True)
+    chunk_id: Mapped[str] = mapped_column(ForeignKey(f"{SCHEMA}.kb_chunk.id"), index=True)
     confidence: Mapped[float] = mapped_column(Numeric(4, 3), default=1.0, server_default="1.0")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
@@ -239,14 +239,14 @@ class SecurityEvent(Base):
     恰恰是最需要留痕的一条。读取侧仍然只按 `ctx.tenant_id` 过滤,平台管理员可跨租户查。
     """
 
-    __tablename__ = "security_event"
+    __tablename__ = "sec_event"
     __table_args__ = (
-        Index("ix_security_event_tenant_created", "tenant_id", "created_at"),
+        Index("ix_sec_event_tenant_created", "tenant_id", "created_at"),
         {"schema": SCHEMA},
     )
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True, default=lambda: new_id("sec-"))
-    tenant_id: Mapped[str | None] = mapped_column(ForeignKey(f"{SCHEMA}.tenant.id"), index=True)
+    tenant_id: Mapped[str | None] = mapped_column(ForeignKey(f"{SCHEMA}.kb_tenant.id"), index=True)
     user_id: Mapped[str] = mapped_column(String(64), default="")
     #: `unauthenticated` / `bad_token` / `cross_tenant_read` / `kb_scope_denied` / `role_denied`
     event: Mapped[str] = mapped_column(String(40))
@@ -266,7 +266,7 @@ class TraceRun(Base):
     )
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True, default=lambda: new_id("run-"))
-    tenant_id: Mapped[str] = mapped_column(ForeignKey(f"{SCHEMA}.tenant.id"), index=True)
+    tenant_id: Mapped[str] = mapped_column(ForeignKey(f"{SCHEMA}.kb_tenant.id"), index=True)
     thread_id: Mapped[str] = mapped_column(String(200))
     user_id: Mapped[str] = mapped_column(String(64), default="")
     query: Mapped[str] = mapped_column(Text)
@@ -307,14 +307,14 @@ class TraceStep(Base):
 
 
 class Feedback(Base):
-    __tablename__ = "feedback"
+    __tablename__ = "kb_feedback"
     __table_args__ = (
-        Index("ix_feedback_tenant_created", "tenant_id", "created_at"),
+        Index("ix_kb_feedback_tenant_created", "tenant_id", "created_at"),
         {"schema": SCHEMA},
     )
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True, default=new_id)
-    tenant_id: Mapped[str] = mapped_column(ForeignKey(f"{SCHEMA}.tenant.id"), index=True)
+    tenant_id: Mapped[str] = mapped_column(ForeignKey(f"{SCHEMA}.kb_tenant.id"), index=True)
     run_id: Mapped[str] = mapped_column(ForeignKey(f"{SCHEMA}.trace_run.id"), index=True)
     user_id: Mapped[str] = mapped_column(String(64), default="")
     score: Mapped[int] = mapped_column(Integer)
@@ -331,7 +331,7 @@ class EvalSet(Base):
     )
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True, default=lambda: new_id("set-"))
-    tenant_id: Mapped[str] = mapped_column(ForeignKey(f"{SCHEMA}.tenant.id"), index=True)
+    tenant_id: Mapped[str] = mapped_column(ForeignKey(f"{SCHEMA}.kb_tenant.id"), index=True)
     name: Mapped[str] = mapped_column(String(200))
     version: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
     #: Once frozen, a trigger rejects UPDATE/DELETE on this row and on its cases (§8.3): a frozen
@@ -373,7 +373,7 @@ class EvalRun(Base):
     )
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True, default=lambda: new_id("evr-"))
-    tenant_id: Mapped[str] = mapped_column(ForeignKey(f"{SCHEMA}.tenant.id"), index=True)
+    tenant_id: Mapped[str] = mapped_column(ForeignKey(f"{SCHEMA}.kb_tenant.id"), index=True)
     set_id: Mapped[str] = mapped_column(ForeignKey(f"{SCHEMA}.eval_set.id"), index=True)
     #: The config under test, fingerprinted and stored — §8.4 attributes a delta to a change only
     #: because the run records what produced it.
@@ -410,15 +410,15 @@ class OnlineEval(Base):
     """一次问答的在线评估结果(FR-601)。一次 run 只有一行,citation/format/safety 全量,
     judge 两项按抽样率可能为空。失败样本靠 `failed` 非空筛出来。"""
 
-    __tablename__ = "online_eval"
+    __tablename__ = "eval_online"
     __table_args__ = (
-        UniqueConstraint("run_id", name="uq_online_eval_run"),
-        Index("ix_online_eval_tenant_created", "tenant_id", "created_at"),
+        UniqueConstraint("run_id", name="uq_eval_online_run"),
+        Index("ix_eval_online_tenant_created", "tenant_id", "created_at"),
         {"schema": SCHEMA},
     )
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True, default=lambda: new_id("oev-"))
-    tenant_id: Mapped[str] = mapped_column(ForeignKey(f"{SCHEMA}.tenant.id"), index=True)
+    tenant_id: Mapped[str] = mapped_column(ForeignKey(f"{SCHEMA}.kb_tenant.id"), index=True)
     run_id: Mapped[str] = mapped_column(
         ForeignKey(f"{SCHEMA}.trace_run.id", ondelete="CASCADE"), index=True
     )

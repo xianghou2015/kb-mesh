@@ -330,8 +330,8 @@ async def _purge(factory: async_sessionmaker[AsyncSession]) -> None:
             "delete from platform.trace_step where run_id in "
             "(select id from platform.trace_run where tenant_id = any(:ts))",
             "delete from platform.trace_run where tenant_id = any(:ts)",
-            "delete from platform.security_event where tenant_id = any(:ts)",
-            "delete from platform.tenant where id = any(:ts)",
+            "delete from platform.sec_event where tenant_id = any(:ts)",
+            "delete from platform.kb_tenant where id = any(:ts)",
         ):
             await session.execute(sa_text(stmt), {"ts": ids})
 
@@ -977,7 +977,7 @@ async def _run_row(handle: Rig, run_id: str) -> TraceRun:
 async def _drop_events(factory: async_sessionmaker[AsyncSession]) -> None:
     async with factory() as session, session.begin():
         await session.execute(
-            sa_text("delete from platform.security_event where tenant_id = any(:ts)"),
+            sa_text("delete from platform.sec_event where tenant_id = any(:ts)"),
             {"ts": [TENANT_A, TENANT_B]},
         )
 

@@ -188,8 +188,8 @@ async def _purge(factory: async_sessionmaker[AsyncSession]) -> None:
             "delete from platform.trace_step where run_id in "
             "(select id from platform.trace_run where tenant_id = any(:ts))",
             "delete from platform.trace_run where tenant_id = any(:ts)",
-            "delete from platform.security_event where tenant_id = any(:ts)",
-            "delete from platform.tenant where id = any(:ts)",
+            "delete from platform.sec_event where tenant_id = any(:ts)",
+            "delete from platform.kb_tenant where id = any(:ts)",
         ):
             await session.execute(sa_text(stmt), {"ts": [TENANT]})
 

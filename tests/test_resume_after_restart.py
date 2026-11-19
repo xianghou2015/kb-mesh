@@ -62,7 +62,7 @@ WAIT_BUDGET_S = 90.0
 def _urls() -> tuple[str, str]:
     settings = get_settings()
     return (
-        settings.test_db_url if settings.is_test else settings.db_url,
+        settings.db_url,
         settings.checkpoint_schema,
     )
 
@@ -89,8 +89,8 @@ async def _purge(factory: async_sessionmaker[AsyncSession]) -> None:
         "delete from platform.trace_step where run_id in "
         "(select id from platform.trace_run where tenant_id = any(:ts))",
         "delete from platform.trace_run where tenant_id = any(:ts)",
-        "delete from platform.security_event where tenant_id = any(:ts)",
-        "delete from platform.tenant where id = any(:ts)",
+        "delete from platform.sec_event where tenant_id = any(:ts)",
+        "delete from platform.kb_tenant where id = any(:ts)",
     )
     async with factory() as session, session.begin():
         for stmt in ckpt:
@@ -136,7 +136,7 @@ def _popen(mode: str, thread: str, extra: tuple[str, ...]) -> subprocess.Popen[s
     return subprocess.Popen(  # noqa: S603 — 固定解释器 + 仓内脚本,参数里没有用户输入
         [sys.executable, str(CHILD), mode, thread, *extra],
         cwd=str(REPO),
-        env={**os.environ, "KBMESH_ENV": "test", "KBMESH_TEST_DB_URL": url},
+        env={**os.environ},
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
@@ -367,7 +367,7 @@ async def test_expired_is_not_a_security_event(
         await runtime.resume(thread, {"choice": 1})
     assert await _scalar(
         factory,
-        "select count(*) from platform.security_event where tenant_id = :t",
+        "select count(*) from platform.sec_event where tenant_id = :t",
         t=child.TENANT,
     ) == 0
 
@@ -433,7 +433,7 @@ async def test_cross_tenant_resume_is_denied_and_recorded(
 
     event = await _scalar(
         factory,
-        "select event || '@' || path from platform.security_event"
+        "select event || '@' || path from platform.sec_event"
         " where tenant_id = :t order by created_at limit 1",
         t=TENANT_B,
     )

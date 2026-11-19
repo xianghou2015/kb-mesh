@@ -1,7 +1,7 @@
-"""Test fixtures bound to the real Postgres test database.
+"""Test fixtures bound to the real Postgres database.
 
 数据层与隔离验收一律跑真 PG(技术文档 §9:不接受靠 mock 或「看函数签名」通过),所以缺
-`KBMESH_TEST_DB_URL` 时**直接 fail 而不是 skip** —— 静默跳过等于让一条没连库的 CI 报全绿,
+`KBMESH_DB_URL` 时**直接 fail 而不是 skip** —— 静默跳过等于让一条没连库的 CI 报全绿,
 而那正是这套测试要防的事。
 """
 from __future__ import annotations
@@ -20,10 +20,10 @@ from kbmesh.db.models import Chunk, Document, EvalCase, EvalSet, KnowledgeBase, 
 
 def database_url() -> str:
     """走 Settings,而不是裸 os.environ:`.env` 里的值只进 pydantic,不进进程环境。"""
-    url = get_settings().test_db_url
+    url = get_settings().db_url
     if not url:
         pytest.fail(
-            "KBMESH_TEST_DB_URL 未设置:数据层测试必须连真实 PG。"
+            "KBMESH_DB_URL 未设置:数据层测试必须连真实 PG。"
             "跑法见 AGENTS.md(`uv run pytest`),不要 mock 掉这一层。"
         )
     return url
@@ -128,21 +128,21 @@ async def purge_tenant_data(engine: AsyncEngine, *, prefix: str = "tnt-api-") ->
             await conn.execute(sa.text("ALTER TABLE platform.eval_set ENABLE TRIGGER USER"))
             await conn.execute(sa.text("ALTER TABLE platform.eval_case ENABLE TRIGGER USER"))
         for stmt in (
-            "delete from platform.feedback where tenant_id like :p",
+            "delete from platform.kb_feedback where tenant_id like :p",
             "delete from platform.trace_step where run_id in "
             "(select id from platform.trace_run where tenant_id like :p)",
             "delete from platform.trace_run where tenant_id like :p",
-            "delete from platform.online_eval where tenant_id like :p",
-            "delete from platform.chunk where tenant_id like :p",
-            "delete from platform.document where tenant_id like :p",
-            "delete from platform.entity where tenant_id like :p",
-            "delete from platform.relation_edge where tenant_id like :p",
-            "delete from platform.kb where tenant_id like :p",
-            "delete from platform.app_user where tenant_id like :p",
-            "delete from platform.security_event where tenant_id like :p",
+            "delete from platform.eval_online where tenant_id like :p",
+            "delete from platform.kb_chunk where tenant_id like :p",
+            "delete from platform.kb_document where tenant_id like :p",
+            "delete from platform.kb_entity where tenant_id like :p",
+            "delete from platform.kb_edge where tenant_id like :p",
+            "delete from platform.kb_base where tenant_id like :p",
+            "delete from platform.kb_user where tenant_id like :p",
+            "delete from platform.sec_event where tenant_id like :p",
             # 登录失败/节流事件的 actor=None(未认证),tenant_id 为空;不清会把限速状态带进下一个用例。
-            "delete from platform.security_event where tenant_id is null and path like '/api/auth/%'",
-            "delete from platform.tenant where id like :p",
+            "delete from platform.sec_event where tenant_id is null and path like '/api/auth/%'",
+            "delete from platform.kb_tenant where id like :p",
         ):
             await conn.execute(sa.text(stmt), {"p": pattern})
 

@@ -1,6 +1,6 @@
 """Alembic environment (async).
 
-URL resolution order: `-x db_url=` > `KBMESH_TEST_DB_URL` when `KBMESH_ENV=test` > `KBMESH_DB_URL`.
+URL resolution order: `-x db_url=` > `KBMESH_DB_URL`.
 Nothing here reads `alembic.ini` for the URL, so a stale credential can never be committed into
 the config file by accident.
 
@@ -14,7 +14,6 @@ Two traps this file has to survive, both learned on the sibling project:
 from __future__ import annotations
 
 import asyncio
-import os
 from logging.config import fileConfig
 
 from alembic import context
@@ -41,8 +40,6 @@ def _url() -> str:
     if x_url:
         return x_url
     settings = get_settings()
-    if os.getenv("KBMESH_ENV", settings.env) == "test" and settings.test_db_url:
-        return settings.test_db_url
     if not settings.db_url:
         raise RuntimeError("no database URL: set KBMESH_DB_URL or pass -x db_url=…")
     return settings.db_url

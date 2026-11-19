@@ -23,6 +23,15 @@ from kbmesh.eval.runner import CaseOutcome, EvalRunner
 router = APIRouter(prefix="/api", tags=["evals"])
 
 
+async def _require_eval_write(ctx: TenantContext, db: AsyncSession, target: str) -> None:
+    if not ctx.has_role(ROLE_TENANT_ADMIN, ROLE_PLATFORM_ADMIN):
+        with contextlib.suppress(Exception):
+            await record_security_event(
+                db, actor=ctx, event="role_denied", target=target, path="/api/evals"
+            )
+        raise PermissionDenied(f"role_denied: {target}")
+
+
 async def _no_answer(_case: object) -> CaseOutcome:
     raise RuntimeError("这个端点只读报告,不执行 case")
 
@@ -69,6 +78,7 @@ async def create_eval_set(
     ctx: TenantContext = Depends(get_ctx),
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
+    await _require_eval_write(ctx, db, "eval-set:create")
     row = await EvalRepo(ctx, db).create_set(
         body.name, cases=[one.model_dump() for one in body.cases]
     )
@@ -82,6 +92,7 @@ async def import_eval_set_from_feedback(
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     """FR-609:反馈池 → 候选评估集。题目取原问,修正答案进 reference_answer。"""
+    await _require_eval_write(ctx, db, "eval-set:from-feedback")
     repo = EvalRepo(ctx, db)
     row = await repo.import_feedback(body.name, max_score=body.max_score, limit=body.limit)
     return _set_payload(row, cases_total=await repo.case_count(row.id))
@@ -113,6 +124,7 @@ async def freeze_eval_set(
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     """FR-606:冻结后内容不可变(触发器兜底),评估才可复现。"""
+    await _require_eval_write(ctx, db, f"eval-set:{set_id}:freeze")
     return _set_payload(await EvalRepo(ctx, db).freeze_set(set_id))
 
 
@@ -122,6 +134,7 @@ async def create_eval_run(
     ctx: TenantContext = Depends(get_ctx),
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
+    await _require_eval_write(ctx, db, "eval-run:create")
     repo = EvalRepo(ctx, db)
     run = await repo.create_run(
         body.set_id,

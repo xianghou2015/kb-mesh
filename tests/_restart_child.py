@@ -125,7 +125,7 @@ class StubGateway:
 
 def _url() -> str:
     settings = get_settings()
-    return settings.test_db_url if settings.is_test else settings.db_url
+    return settings.db_url
 
 
 async def _factory() -> async_sessionmaker:

@@ -62,3 +62,19 @@ class EvalRunIn(BaseModel):
     set_id: str = Field(min_length=1)
     config_snapshot: dict[str, Any] = Field(default_factory=dict)
     baseline_run_id: str | None = None
+
+
+class KBIn(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+    embedding_model: str = Field(default="", max_length=120)
+    chunk_policy: dict[str, Any] = Field(default_factory=dict)
+
+
+class TenantIn(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+
+
+class UserIn(BaseModel):
+    username: str = Field(min_length=1, max_length=120)
+    password: str = Field(min_length=1, max_length=200)
+    role: str = Field(default="reader", max_length=32)
